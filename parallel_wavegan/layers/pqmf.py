@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-  # noqa
 
 # Copyright 2020 Tomoki Hayashi
 #  MIT License (https://opensource.org/licenses/MIT)
@@ -8,8 +8,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-from scipy.signal import kaiser
+from scipy.signal.windows import kaiser
 
 
 def design_prototype_filter(taps=62, cutoff_ratio=0.142, beta=9.0):
@@ -29,7 +28,8 @@ def design_prototype_filter(taps=62, cutoff_ratio=0.142, beta=9.0):
     .. _`A Kaiser window approach for the design of prototype filters of cosine modulated filterbanks`:
         https://ieeexplore.ieee.org/abstract/document/681427
 
-    """
+    """ #noqa
+
     # check the arguments are valid
     assert taps % 2 == 0, "The number of taps mush be even number."
     assert 0.0 < cutoff_ratio < 1.0, "Cutoff ratio must be > 0.0 and < 1.0."
@@ -46,7 +46,7 @@ def design_prototype_filter(taps=62, cutoff_ratio=0.142, beta=9.0):
     w = kaiser(taps + 1, beta)
     h = h_i * w
 
-    return h
+    return h  # noqa
 
 
 class PQMF(torch.nn.Module):
@@ -72,7 +72,7 @@ class PQMF(torch.nn.Module):
             beta (float): Beta coefficient for kaiser window.
 
         """
-        super(PQMF, self).__init__()
+        super().__init__()
 
         # build analysis & synthesis filter coefficients
         h_proto = design_prototype_filter(taps, cutoff_ratio, beta)
