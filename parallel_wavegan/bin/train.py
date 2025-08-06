@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # Copyright 2019 Tomoki Hayashi
 #  MIT License (https://opensource.org/licenses/MIT)
@@ -38,7 +37,7 @@ from tqdm import tqdm
 matplotlib.use("Agg")
 
 
-class Trainer(object):
+class Trainer:
     """Customized trainer module for Parallel WaveGAN training."""
 
     def __init__(
@@ -548,7 +547,7 @@ class Trainer(object):
             self.finish_train = True
 
 
-class Collater(object):
+class Collater:
     """Customized collater for Pytorch DataLoader in training."""
 
     def __init__(
@@ -622,8 +621,7 @@ class Collater(object):
         if self.use_noise_input:
             z_batch = torch.randn(y_batch.size())  # (B, 1, T)
             return (z_batch, c_batch), y_batch
-        else:
-            return (c_batch,), y_batch
+        return (c_batch,), y_batch
 
     def _adjust_length(self, x, c):
         """Adjust the audio and feature lengths.
