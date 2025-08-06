@@ -10,32 +10,29 @@ import argparse
 import logging
 import os
 import sys
-
 from collections import defaultdict
 
 import matplotlib
 import numpy as np
-import soundfile as sf
-import torch
-import yaml
-
-from tensorboardX import SummaryWriter
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-
 import parallel_wavegan
 import parallel_wavegan.models
 import parallel_wavegan.optimizers
-
-from parallel_wavegan.datasets import AudioMelDataset
-from parallel_wavegan.datasets import AudioMelSCPDataset
+import soundfile as sf
+import torch
+import yaml
+from parallel_wavegan.datasets import AudioMelDataset, AudioMelSCPDataset
 from parallel_wavegan.layers import PQMF
-from parallel_wavegan.losses import DiscriminatorAdversarialLoss
-from parallel_wavegan.losses import FeatureMatchLoss
-from parallel_wavegan.losses import GeneratorAdversarialLoss
-from parallel_wavegan.losses import MelSpectrogramLoss
-from parallel_wavegan.losses import MultiResolutionSTFTLoss
+from parallel_wavegan.losses import (
+    DiscriminatorAdversarialLoss,
+    FeatureMatchLoss,
+    GeneratorAdversarialLoss,
+    MelSpectrogramLoss,
+    MultiResolutionSTFTLoss,
+)
 from parallel_wavegan.utils import read_hdf5
+from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 # set to avoid matplotlib error in CLI environment
 matplotlib.use("Agg")
@@ -210,12 +207,12 @@ class Trainer(object):
             if self.config["use_stft_loss"]:
                 sc_loss, mag_loss = self.criterion["stft"](y_, y)
                 gen_loss += sc_loss + mag_loss
-                self.total_train_loss[
-                    "train/spectral_convergence_loss"
-                ] += sc_loss.item()
-                self.total_train_loss[
-                    "train/log_stft_magnitude_loss"
-                ] += mag_loss.item()
+                self.total_train_loss["train/spectral_convergence_loss"] += (
+                    sc_loss.item()
+                )
+                self.total_train_loss["train/log_stft_magnitude_loss"] += (
+                    mag_loss.item()
+                )
 
             # subband multi-resolution stft loss
             if self.config["use_subband_stft_loss"]:
@@ -223,13 +220,12 @@ class Trainer(object):
                 y_mb = self.criterion["pqmf"].analysis(y)
                 sub_sc_loss, sub_mag_loss = self.criterion["sub_stft"](y_mb_, y_mb)
                 gen_loss += 0.5 * (sub_sc_loss + sub_mag_loss)
-                self.total_train_loss[
-                    "train/sub_spectral_convergence_loss"
-                ] += sub_sc_loss.item()
-                self.total_train_loss[
-                    "train/sub_log_stft_magnitude_loss"
-                ] += sub_mag_loss.item()
-
+                self.total_train_loss["train/sub_spectral_convergence_loss"] += (
+                    sub_sc_loss.item()
+                )
+                self.total_train_loss["train/sub_log_stft_magnitude_loss"] += (
+                    sub_mag_loss.item()
+                )
             # mel spectrogram loss
             if self.config["use_mel_loss"]:
                 mel_loss = self.criterion["mel"](y_, y)
@@ -251,9 +247,9 @@ class Trainer(object):
                     with torch.no_grad():
                         p = self.model["discriminator"](y)
                     fm_loss = self.criterion["feat_match"](p_, p)
-                    self.total_train_loss[
-                        "train/feature_matching_loss"
-                    ] += fm_loss.item()
+                    self.total_train_loss["train/feature_matching_loss"] += (
+                        fm_loss.item()
+                    )
                     adv_loss += self.config["lambda_feat_match"] * fm_loss
 
                 # add adversarial loss to generator loss
@@ -275,6 +271,7 @@ class Trainer(object):
         #######################
         #    Discriminator    #
         #######################
+
         if self.steps > self.config["discriminator_train_start_steps"]:
             # re-compute y_ which leads better quality
             with torch.no_grad():
@@ -309,6 +306,11 @@ class Trainer(object):
 
     def _train_epoch(self):
         """Train model one epoch."""
+        # schedulefree optimizers need training
+        for key in ["generator", "discriminator"]:
+            if type(self.optimizer[key]).__module__.startswith("schedulefree."):
+                self.optimizer[key].train()
+
         for train_steps_per_epoch, batch in enumerate(self.data_loader["train"], 1):
             # train one step
             self._train_step(batch)
@@ -366,12 +368,12 @@ class Trainer(object):
             aux_loss *= 0.5  # for balancing with subband stft loss
             y_mb = self.criterion["pqmf"].analysis(y)
             sub_sc_loss, sub_mag_loss = self.criterion["sub_stft"](y_mb_, y_mb)
-            self.total_eval_loss[
-                "eval/sub_spectral_convergence_loss"
-            ] += sub_sc_loss.item()
-            self.total_eval_loss[
-                "eval/sub_log_stft_magnitude_loss"
-            ] += sub_mag_loss.item()
+            self.total_eval_loss["eval/sub_spectral_convergence_loss"] += (
+                sub_sc_loss.item()
+            )
+            self.total_eval_loss["eval/sub_log_stft_magnitude_loss"] += (
+                sub_mag_loss.item()
+            )
             aux_loss += 0.5 * (sub_sc_loss + sub_mag_loss)
 
         # mel spectrogram loss
@@ -420,7 +422,9 @@ class Trainer(object):
         # change mode
         for key in self.model.keys():
             self.model[key].eval()
-
+            # schedulefree optimizers need evaluation
+            if type(self.optimizer[key]).__module__.startswith("schedulefree."):
+                self.optimizer[key].eval()
         # calculate loss for each batch
         for eval_steps_per_epoch, batch in enumerate(
             tqdm(self.data_loader["dev"], desc="[eval]"), 1
@@ -453,6 +457,9 @@ class Trainer(object):
         # restore mode
         for key in self.model.keys():
             self.model[key].train()
+            # schedulefree optimizers need training
+            if type(self.optimizer[key]).__module__.startswith("schedulefree."):
+                self.optimizer[key].train()
 
     @torch.no_grad()
     def _genearete_and_save_intermediate_result(self, batch):
@@ -608,11 +615,9 @@ class Collater(object):
         y_batch = [x[start:end] for x, start, end in zip(xs, x_starts, x_ends)]
         c_batch = [c[start:end] for c, start, end in zip(cs, c_starts, c_ends)]
 
-        # convert each batch to tensor, asuume that each item in batch has the same length
         y_batch, c_batch = np.array(y_batch), np.array(c_batch)
         y_batch = torch.tensor(y_batch, dtype=torch.float).unsqueeze(1)  # (B, 1, T)
         c_batch = torch.tensor(c_batch, dtype=torch.float).transpose(2, 1)  # (B, C, T')
-
         # make input noise signal batch tensor
         if self.use_noise_input:
             z_batch = torch.randn(y_batch.size())  # (B, 1, T)
@@ -809,11 +814,11 @@ def main():
         raise ValueError("Please specify either --dev-dumpdir or --dev-*-scp.")
 
     # load and save config
-    with open(args.config) as f:
-        config = yaml.load(f, Loader=yaml.Loader)
+    with open(args.config, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
     config.update(vars(args))
     config["version"] = parallel_wavegan.__version__  # add version info
-    with open(os.path.join(args.outdir, "config.yml"), "w") as f:
+    with open(os.path.join(args.outdir, "config.yml"), "w", encoding="utf-8") as f:
         yaml.dump(config, f, Dumper=yaml.Dumper)
     for key, value in config.items():
         logging.info(f"{key} = {value}")
@@ -1045,6 +1050,7 @@ def main():
             **config["discriminator_scheduler_params"],
         ),
     }
+
     if args.distributed:
         # wrap model for distributed training
         try:
