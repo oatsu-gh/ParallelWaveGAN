@@ -198,7 +198,7 @@ class MelGANGenerator(torch.nn.Module):
             if isinstance(m, torch.nn.Conv1d) or isinstance(
                 m, torch.nn.ConvTranspose1d
             ):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
@@ -493,7 +493,7 @@ class MelGANMultiScaleDiscriminator(torch.nn.Module):
             if isinstance(m, torch.nn.Conv1d) or isinstance(
                 m, torch.nn.ConvTranspose1d
             ):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)

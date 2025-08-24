@@ -190,15 +190,13 @@ class ParallelWaveGANGenerator(torch.nn.Module):
 
         def _apply_weight_norm(m):
             if isinstance(m, torch.nn.Conv1d) or isinstance(m, torch.nn.Conv2d):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
 
     @staticmethod
-    def _get_receptive_field_size(
-        layers, stacks, kernel_size, dilation=lambda x: 2**x
-    ):
+    def _get_receptive_field_size(layers, stacks, kernel_size, dilation=lambda x: 2**x):
         assert layers % stacks == 0
         layers_per_cycle = layers // stacks
         dilations = [dilation(i % layers_per_cycle) for i in range(layers)]
@@ -356,7 +354,7 @@ class ParallelWaveGANDiscriminator(torch.nn.Module):
 
         def _apply_weight_norm(m):
             if isinstance(m, torch.nn.Conv1d) or isinstance(m, torch.nn.Conv2d):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
@@ -498,7 +496,7 @@ class ResidualParallelWaveGANDiscriminator(torch.nn.Module):
 
         def _apply_weight_norm(m):
             if isinstance(m, torch.nn.Conv1d) or isinstance(m, torch.nn.Conv2d):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)

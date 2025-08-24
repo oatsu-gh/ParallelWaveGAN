@@ -207,15 +207,19 @@ class HiFiGANGenerator(torch.nn.Module):
 
     def remove_weight_norm(self):
         """Remove weight normalization module from all of the layers."""
+        self.remove_parametrizations("weight")
 
-        def _remove_weight_norm(m):
+    def remove_parametrizations(self, tensor_name: str):
+        """Remove the parametrizations"""
+
+        def _remove_parametrizations(m, tensor_name):
             try:
-                logging.debug(f"Weight norm is removed from {m}.")
-                torch.nn.utils.remove_weight_norm(m)
-            except ValueError:  # this module didn't have weight norm
+                logging.debug(f"Parametrizations ({tensor_name}) are removed from {m}.")
+                torch.nn.utils.parametrize.remove_parametrizations(m, tensor_name)
+            except ValueError:  # this module didn't have the parameter
                 return
 
-        self.apply(_remove_weight_norm)
+        self.apply(_remove_parametrizations, tensor_name)
 
     def apply_weight_norm(self):
         """Apply weight normalization module from all of the layers."""
@@ -224,7 +228,7 @@ class HiFiGANGenerator(torch.nn.Module):
             if isinstance(m, torch.nn.Conv1d) or isinstance(
                 m, torch.nn.ConvTranspose1d
             ):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
@@ -384,7 +388,7 @@ class HiFiGANPeriodDiscriminator(torch.nn.Module):
 
         def _apply_weight_norm(m):
             if isinstance(m, torch.nn.Conv2d):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
@@ -599,7 +603,7 @@ class HiFiGANScaleDiscriminator(torch.nn.Module):
 
         def _apply_weight_norm(m):
             if isinstance(m, torch.nn.Conv2d):
-                torch.nn.utils.weight_norm(m)
+                torch.nn.utils.parametrizations.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)

@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Conv1d, ConvTranspose1d
-from torch.nn.utils import remove_weight_norm, weight_norm
+from torch.nn.utils.parametrize import remove_parametrizations
+from torch.nn.utils.parametrizations import weight_norm
 
 from .nsf import SourceModuleHnNSF
 
@@ -30,7 +31,7 @@ def get_padding(kernel_size, dilation=1):
 
 class ResBlock1(torch.nn.Module):
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
-        super(ResBlock1, self).__init__()
+        super().__init__()
         self.convs1 = nn.ModuleList(
             [
                 weight_norm(
@@ -113,15 +114,18 @@ class ResBlock1(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
+        self.remove_parametrizations("weight")
+
+    def remove_parametrizations(self, tensor_name: str):
         for l in self.convs1:
-            remove_weight_norm(l)
+            remove_parametrizations(l, tensor_name)
         for l in self.convs2:
-            remove_weight_norm(l)
+            remove_parametrizations(l, tensor_name)
 
 
 class ResBlock2(torch.nn.Module):
     def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
-        super(ResBlock2, self).__init__()
+        super().__init__()
         self.convs = nn.ModuleList(
             [
                 weight_norm(
@@ -156,8 +160,11 @@ class ResBlock2(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
+        self.remove_parametrizations("weight")
+
+    def remove_parametrizations(self, tensor_name: str):
         for l in self.convs:
-            remove_weight_norm(l)
+            remove_parametrizations(l, tensor_name)
 
 
 class Conv1d1x1(Conv1d):
@@ -165,7 +172,7 @@ class Conv1d1x1(Conv1d):
 
     def __init__(self, in_channels, out_channels, bias):
         """Initialize 1x1 Conv1d module."""
-        super(Conv1d1x1, self).__init__(
+        super().__init__(
             in_channels, out_channels, kernel_size=1, padding=0, dilation=1, bias=bias
         )
 
@@ -192,7 +199,7 @@ class HnSincHifiGanGenerator(torch.nn.Module):
         resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
         drop_melf0vuv=True,
     ):
-        super(HnSincHifiGanGenerator, self).__init__()
+        super().__init__()
         self.out_lf0_idx = out_lf0_idx
         self.out_lf0_mean = out_lf0_mean
         self.out_lf0_scale = out_lf0_scale
@@ -315,9 +322,12 @@ class HnSincHifiGanGenerator(torch.nn.Module):
         return c.squeeze(0).transpose(1, 0)
 
     def remove_weight_norm(self):
+        self.remove_parametrizations("weight")
+
+    def remove_parametrizations(self, tensor_name: str):
         for l in self.ups:
-            remove_weight_norm(l)
+            remove_parametrizations(l, tensor_name)
         for l in self.resblocks:
-            l.remove_weight_norm()
-        remove_weight_norm(self.conv_pre)
-        remove_weight_norm(self.conv_post)
+            l.remove_parametrizations(tensor_name)
+        remove_parametrizations(self.conv_pre, tensor_name)
+        remove_parametrizations(self.conv_post, tensor_name)
